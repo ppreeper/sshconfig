@@ -127,6 +127,7 @@ func (db *Database) writeConfig(configout string) {
 
 	f.WriteString(configDefaults())
 
+	homeDir, err := os.UserHomeDir()
 	for _, h := range hosts {
 		f.WriteString(fmt.Sprintf("\nHost %s", h.Host))
 		f.WriteString(fmt.Sprintf("\n\tHostName %s", h.HostName))
@@ -134,7 +135,7 @@ func (db *Database) writeConfig(configout string) {
 			f.WriteString(fmt.Sprintf("\n\tUser %s", h.User))
 		}
 		if h.IdentityFile != "" {
-			f.WriteString(fmt.Sprintf("\n\tIdentityFile %s", h.IdentityFile))
+			f.WriteString(fmt.Sprintf("\n\tIdentityFile %s/.ssh/%s", homeDir, h.IdentityFile))
 		}
 		f.WriteString(fmt.Sprintf("\n\tPort %d", h.Port))
 	}

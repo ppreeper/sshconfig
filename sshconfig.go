@@ -70,7 +70,7 @@ func (db *Database) cleanCSV(configfile string) {
 	err := db.Select(&hosts, q)
 	checkErr(err)
 
-	f, err := os.Create(configfile + "tmp")
+	f, err := os.Create(configfile)
 	checkErr(err)
 	defer f.Close()
 	f.WriteString(fmt.Sprintf("\"priority\";\"host\";\"host_name\";\"user\";\"identity_file\";\"port\"\n"))
@@ -78,7 +78,6 @@ func (db *Database) cleanCSV(configfile string) {
 		// fmt.Println(v)
 		f.WriteString(fmt.Sprintf("\"%d\";\"%s\";\"%s\";\"%s\";\"%s\";\"%d\"\n", v.Priority, v.Host, v.HostName, v.User, v.IdentityFile, v.Port))
 	}
-	os.Rename(configfile+"tmp", configfile)
 
 	db.initDB()
 	db.loadDB(configfile)

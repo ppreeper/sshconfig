@@ -31,10 +31,10 @@ func checkErr(err error) {
 func main() {
 	// file system
 	homeDir, err := os.UserHomeDir()
-	configDir, err := os.UserConfigDir()
+	configDir, err := os.UserHomeDir()
 	checkErr(err)
 	configout := fmt.Sprintf("%s/.ssh/config", homeDir)
-	configfile := fmt.Sprintf("%s/sshconfig.csv", configDir)
+	configfile := fmt.Sprintf("%s/.ssh/sshconfig.csv", configDir)
 
 	// open database connection
 	sdb, err := OpenDatabase("sqlite3", ":memory:")

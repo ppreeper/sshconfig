@@ -4,16 +4,14 @@ import (
 	"bufio"
 	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
-
-	"github.com/jmoiron/sqlx"
-	_ "github.com/mattn/go-sqlite3"
+	// "github.com/jmoiron/sqlx"
+	// _ "github.com/mattn/go-sqlite3"
 )
 
 // SSHHost struct
-type SSHHost struct {
+type CSVRecord struct {
 	Priority     uint   `db:"priority"`
 	Host         string `db:"host"`
 	HostName     string `db:"host_name"`
@@ -21,6 +19,15 @@ type SSHHost struct {
 	IdentityFile string `db:"identity_file"`
 	Port         uint   `db:"port"`
 }
+
+type SSHRecord struct {
+	Host         string
+	User         string
+	IdentityFile string
+	Port         int
+}
+
+var SSHHost map[string][]SSHRecord
 
 func checkErr(err error) {
 	if err != nil {
@@ -30,61 +37,87 @@ func checkErr(err error) {
 
 func main() {
 	// file system
-	homeDir, err := os.UserHomeDir()
+	// homeDir, err := os.UserHomeDir()
 	configDir, err := os.UserHomeDir()
 	checkErr(err)
-	configout := fmt.Sprintf("%s/.ssh/config", homeDir)
+	// configout := fmt.Sprintf("%s/.ssh/config", homeDir)
 	configfile := fmt.Sprintf("%s/.ssh/sshconfig.csv", configDir)
 
 	// open database connection
-	sdb, err := OpenDatabase("sqlite3", ":memory:")
-	checkErr(err)
-	defer sdb.Close()
+	// sdb, err := OpenDatabase("sqlite3", ":memory:")
+	// checkErr(err)
+	// defer sdb.Close()
 
+	// TODO: Check to make sure the file exists
 	// cleanup csv and reload database
-	sdb.cleanCSV(configfile)
+	// sdb.cleanCSV(configfile)
 	// write ssh configfile
-	sdb.writeConfig(configout)
+	// sdb.writeConfig(configout)
+
+	// db.loadDB(configfile)
+	loadCSV(configfile)
 }
 
-func (db *Database) initDB() {
-	// fmt.Println("initDB")
-	db.Exec("DROP TABLE IF EXISTS sshconfig;")
-	db.Exec(`CREATE TABLE sshconfig (
-		priority int,
-		host text,
-		host_name text,
-		user text,
-		identity_file text,
-		port int
-		);`)
-	return
-}
+// func (db *Database) initDB() {
+// 	// fmt.Println("initDB")
+// 	db.Exec("DROP TABLE IF EXISTS sshconfig;")
+// 	db.Exec(`CREATE TABLE sshconfig (
+// 		priority int,
+// 		host text,
+// 		host_name text,
+// 		user text,
+// 		identity_file text,
+// 		port int
+// 		);`)
+// 	return
+// }
 
-func (db *Database) cleanCSV(configfile string) {
-	db.initDB()
-	db.loadDB(configfile)
+// func (db *Database) cleanCSV(configfile string) {
+// 	db.initDB()
+// 	db.loadDB(configfile)
+//
+// 	q := `SELECT distinct priority,host,host_name,user,identity_file,port from sshconfig order by host_name,priority`
+// 	hosts := []SSHHost{}
+// 	err := db.Select(&hosts, q)
+// 	checkErr(err)
+//
+// 	f, err := os.Create(configfile)
+// 	checkErr(err)
+// 	defer f.Close()
+// 	f.WriteString(fmt.Sprintf("\"priority\";\"host\";\"host_name\";\"user\";\"identity_file\";\"port\"\n"))
+// 	for _, v := range hosts {
+// 		// fmt.Println(v)
+// 		f.WriteString(fmt.Sprintf("\"%d\";\"%s\";\"%s\";\"%s\";\"%s\";\"%d\"\n", v.Priority, v.Host, v.HostName, v.User, v.IdentityFile, v.Port))
+// 	}
+//
+// 	db.initDB()
+// 	db.loadDB(configfile)
+// 	return
+// }
 
-	q := `SELECT distinct priority,host,host_name,user,identity_file,port from sshconfig order by host_name,priority`
-	hosts := []SSHHost{}
-	err := db.Select(&hosts, q)
-	checkErr(err)
+// record
+// Host nvgo
+//
+//	HostName 10.10.10.9
+//	User sysuser
+//	IdentityFile /home/sysuser/.ssh/id_rsa
+//	Port 22
+//
+// Host nvpy
+//
+//	HostName 10.10.10.10
+//	User sysuser
+//	IdentityFile /home/sysuser/.ssh/id_rsa
+//	Port 22
+//
+// Host nvpy
+//
+//	HostName 10.10.10.10
+//	User root
+//	IdentityFile /home/sysuser/.ssh/id_rsa
+//	Port 22
 
-	f, err := os.Create(configfile)
-	checkErr(err)
-	defer f.Close()
-	f.WriteString(fmt.Sprintf("\"priority\";\"host\";\"host_name\";\"user\";\"identity_file\";\"port\"\n"))
-	for _, v := range hosts {
-		// fmt.Println(v)
-		f.WriteString(fmt.Sprintf("\"%d\";\"%s\";\"%s\";\"%s\";\"%s\";\"%d\"\n", v.Priority, v.Host, v.HostName, v.User, v.IdentityFile, v.Port))
-	}
-
-	db.initDB()
-	db.loadDB(configfile)
-	return
-}
-
-func (db *Database) loadDB(configfile string) {
+func loadCSV(configfile string) {
 	// Load db
 	csvFile, err := os.Open(configfile)
 	checkErr(err)
@@ -92,10 +125,10 @@ func (db *Database) loadDB(configfile string) {
 	r.Comma = ';'
 	records, err := r.ReadAll()
 	checkErr(err)
-	var hostRec SSHHost
+	var hostRecs []CSVRecord
 	for k, record := range records {
+		var hostRec CSVRecord
 		if k != 0 {
-
 			priority, _ := strconv.ParseUint(record[0], 10, 64)
 			port, _ := strconv.ParseUint(record[5], 10, 16)
 
@@ -105,41 +138,72 @@ func (db *Database) loadDB(configfile string) {
 			hostRec.User = record[3]
 			hostRec.IdentityFile = record[4]
 			hostRec.Port = uint(port)
-
-			// Insert Record
-			_, err = db.NamedExec(`INSERT INTO sshconfig VALUES (:priority,:host,:host_name,:user,:identity_file,:port)`, hostRec)
-			checkErr(err)
+			hostRecs = append(hostRecs, hostRec)
 		}
 	}
-	return
+	fmt.Println(hostRecs)
+	//    order by
+	// q := `SELECT distinct priority,host,host_name,user,identity_file,port
+	//    from sshconfig order by host_name,priority`
+
 }
 
-func (db *Database) writeConfig(configout string) {
-	f, err := os.Create(configout)
-	checkErr(err)
-	defer f.Close()
+// func (db *Database) loadDB(configfile string) {
+// 	// Load db
+// 	csvFile, err := os.Open(configfile)
+// 	checkErr(err)
+// 	r := csv.NewReader(bufio.NewReader(csvFile))
+// 	r.Comma = ';'
+// 	records, err := r.ReadAll()
+// 	checkErr(err)
+// 	var hostRec SSHHost
+// 	for k, record := range records {
+// 		if k != 0 {
+//
+// 			priority, _ := strconv.ParseUint(record[0], 10, 64)
+// 			port, _ := strconv.ParseUint(record[5], 10, 16)
+//
+// 			hostRec.Priority = uint(priority)
+// 			hostRec.Host = record[1]
+// 			hostRec.HostName = record[2]
+// 			hostRec.User = record[3]
+// 			hostRec.IdentityFile = record[4]
+// 			hostRec.Port = uint(port)
+//
+// 			// Insert Record
+// 			_, err = db.NamedExec(`INSERT INTO sshconfig VALUES (:priority,:host,:host_name,:user,:identity_file,:port)`, hostRec)
+// 			checkErr(err)
+// 		}
+// 	}
+// 	return
+// }
 
-	q := `SELECT distinct priority,host,host_name,user,identity_file,port from sshconfig order by host_name,priority`
-	hosts := []SSHHost{}
-	err = db.Select(&hosts, q)
-	checkErr(err)
-
-	f.WriteString(configDefaults())
-
-	homeDir, err := os.UserHomeDir()
-	for _, h := range hosts {
-		f.WriteString(fmt.Sprintf("\nHost %s", h.Host))
-		f.WriteString(fmt.Sprintf("\n\tHostName %s", h.HostName))
-		if h.User != "" {
-			f.WriteString(fmt.Sprintf("\n\tUser %s", h.User))
-		}
-		if h.IdentityFile != "" {
-			f.WriteString(fmt.Sprintf("\n\tIdentityFile %s/.ssh/%s", homeDir, h.IdentityFile))
-		}
-		f.WriteString(fmt.Sprintf("\n\tPort %d", h.Port))
-	}
-	return
-}
+// func (db *Database) writeConfig(configout string) {
+// 	f, err := os.Create(configout)
+// 	checkErr(err)
+// 	defer f.Close()
+//
+// 	q := `SELECT distinct priority,host,host_name,user,identity_file,port from sshconfig order by host_name,priority`
+// 	hosts := []SSHHost{}
+// 	err = db.Select(&hosts, q)
+// 	checkErr(err)
+//
+// 	f.WriteString(configDefaults())
+//
+// 	homeDir, err := os.UserHomeDir()
+// 	for _, h := range hosts {
+// 		f.WriteString(fmt.Sprintf("\nHost %s", h.Host))
+// 		f.WriteString(fmt.Sprintf("\n\tHostName %s", h.HostName))
+// 		if h.User != "" {
+// 			f.WriteString(fmt.Sprintf("\n\tUser %s", h.User))
+// 		}
+// 		if h.IdentityFile != "" {
+// 			f.WriteString(fmt.Sprintf("\n\tIdentityFile %s/.ssh/%s", homeDir, h.IdentityFile))
+// 		}
+// 		f.WriteString(fmt.Sprintf("\n\tPort %d", h.Port))
+// 	}
+// 	return
+// }
 
 func configDefaults() (defaults string) {
 	defaults = fmt.Sprintf("# defaults")
@@ -154,24 +218,4 @@ func configDefaults() (defaults string) {
 	defaults += fmt.Sprintf("\n\tCiphers chacha20-poly1305@openssh.com,aes128-ctr,aes192-ctr,aes256-ctr")
 	defaults += fmt.Sprintf("\n\tCompression no")
 	return
-}
-
-// Database struct contains sql pointer
-type Database struct {
-	*sqlx.DB
-}
-
-// OpenDatabase open database
-func OpenDatabase(driver string, dburi string) (*Database, error) {
-	// fmt.Println(driver, dburi)
-	var err error
-	db := Database{}
-	db.DB, err = sqlx.Open(driver, dburi)
-	if err != nil {
-		log.Printf("Open sql (%v): %v", dburi, err)
-	}
-	if err = db.Ping(); err != nil {
-		log.Printf("Ping sql: %v", err)
-	}
-	return &db, err
 }

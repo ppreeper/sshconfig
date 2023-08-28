@@ -36,7 +36,7 @@ func main() {
 	// TODO: Check to make sure the file exists
 	recs := loadCSV(csvfile)
 	writeCSV(csvfile, recs)
-	writeConfig(configout, recs)
+	writeConfig(homeDir, configout, recs)
 }
 
 func sortRecs(crecs []SSHHost) (recs []SSHHost) {
@@ -107,7 +107,7 @@ func writeCSV(csvfile string, recs []SSHHost) {
 	}
 }
 
-func writeConfig(configout string, recs []SSHHost) {
+func writeConfig(homeDir, configout string, recs []SSHHost) {
 	defaults := "# defaults"
 	defaults += "\nHost *"
 	defaults += "\n\tForwardAgent no"
@@ -125,6 +125,6 @@ func writeConfig(configout string, recs []SSHHost) {
 	defer f.Close()
 	f.WriteString(defaults)
 	for _, h := range recs {
-		f.WriteString(fmt.Sprintf("\nHost %s\n\tHostname %s\n\tUser %s\n\tIdentityFile %s\n\tPort %d", h.Host, h.HostName, h.User, h.IdentityFile, h.Port))
+		f.WriteString(fmt.Sprintf("\nHost %s\n\tHostname %s\n\tUser %s\n\tIdentityFile %s/.ssh/%s\n\tPort %d", h.Host, h.HostName, h.User, homeDir, h.IdentityFile, h.Port))
 	}
 }
